@@ -39,11 +39,12 @@ class StartPage(tk.Frame):
                 scrollable_frame.columnconfigure(i, weight=1)
 
         def top_frame_grid_config():
-            for i in range(5):
+            for i in range(7):
                 top_frame.columnconfigure(i, weight=1)
 
         def set_search_options():
-            loc_dict = {"Canning Town": "CT", "Poplar": "PO", "Epsom": "EP", "Lewisham": "LE", "Walthamstow": "WA", "Hayes": "HA", "Stepney Green": "SG"}
+            loc_dict = {"Canning Town": "CT", "Poplar": "PO", "Epsom": "EP", "Lewisham": "LE", "Walthamstow": "WA",
+                        "Hayes": "HA", "Stepney Green": "SG"}
             fur_dict = {"Furnished": "Y", "Unfurnished": "N"}
             price_dict = {"£1000-£1499": [1000, 1499], "£1500-£1799": [1500, 1799], "£1800+": [1800, 10000]}
 
@@ -54,11 +55,12 @@ class StartPage(tk.Frame):
             price = price_dict[price_var.get()] if price_var.get() != "Any" else 0
             available = avail_var.get() if avail_var.get() != "Any" else 0
 
-            search_df(location, bedroom, bathroom, furnished, price, available)
+            if not any([location] + [bedroom] + [bathroom] + [furnished] + [price] + [available]):
+                create_labels_from_df(None, True)
+            else:
+                search_df(location, bedroom, bathroom, furnished, price, available)
 
         def search_df(location, bedroom, bathroom, furnished, price, available):
-            # Use eval to pass search fields to np.where ??
-            df = get_df_from_excel()
             search = []
             if location:
                 search.append("(df['Unique code'].str.contains(location))")
@@ -73,19 +75,17 @@ class StartPage(tk.Frame):
             if available:
                 search.append("(df['Available'] ")
 
-            if not search:
-                create_labels(df)
-            else:
-                search_str = " & ".join(search)
-                idx = np.where(eval(search_str))
-                destroy_labels()
-                create_labels(df.loc[idx])
+            df = get_df_from_excel()
+            search_str = " & ".join(search)
+            idx = np.where(eval(search_str))
+            destroy_labels()
+            create_labels_from_df(df.loc[idx])
 
-        def create_labels(df, load=False):
-            if load:
+        def create_labels_from_df(df, load_all=False):
+            if load_all:
                 df = get_df_from_excel()
 
-            header = [ttk.Label(scrollable_frame, text=label) for label in df.columns[:-1]]
+            headers = [ttk.Label(scrollable_frame, text=label) for label in df.columns[:-1]]
             unique_code = [ttk.Label(scrollable_frame, text=row["Unique code"]) for index, row in df.iterrows()]
             flat_num = [ttk.Label(scrollable_frame, text=row["Flat #"]) for index, row in df.iterrows()]
             bedroom = [ttk.Label(scrollable_frame, text=row["Bedroom"]) for index, row in df.iterrows()]
@@ -97,10 +97,10 @@ class StartPage(tk.Frame):
             available_from = [ttk.Label(scrollable_frame, text=row["Available from"]) for index, row in df.iterrows()]
             data_labels = [unique_code, flat_num, bedroom, sqft, bathroom, fur_unf, price, balcony, available_from]
 
-            place_labels(header, 0, True)
-            [place_labels(data_labels[i], i) for i in range(len(data_labels))]
+            grid_labels(headers, 0, True)
+            [grid_labels(data_labels[i], i) for i in range(len(data_labels))]
 
-        def place_labels(labels, col, is_first_row=False):
+        def grid_labels(labels, col, is_first_row=False):
             if is_first_row:
                 for i in range(len(labels)):
                     labels[i].grid(row=0, column=i, rowspan=1, columnspan=1, sticky="nsew")
@@ -131,37 +131,38 @@ class StartPage(tk.Frame):
 
         loc_var = tk.StringVar(top_frame)
         loc_var.set("Any")
-        loc_option = tk.OptionMenu(top_frame, loc_var, "Canning Town", "Poplar", "Epsom", "Lewisham","Walthamstow", "Hayes", "Stepney Green")
+        loc_option = tk.OptionMenu(top_frame, loc_var, "Any", "Canning Town", "Poplar", "Epsom", "Lewisham","Walthamstow",
+                                   "Hayes", "Stepney Green")
         loc_option.grid(row=1, column=0, sticky="nsew")
 
         bed_var = tk.StringVar(top_frame)
         bed_var.set("Any")
-        bed_option = tk.OptionMenu(top_frame, bed_var, "1", "2", "3")
+        bed_option = tk.OptionMenu(top_frame, bed_var, "Any", "1", "2", "3")
         bed_option.grid(row=1, column=1, sticky="nsew")
 
         bath_var = tk.StringVar(top_frame)
         bath_var.set("Any")
-        bath_option = tk.OptionMenu(top_frame, bath_var, "1", "2", "3")
+        bath_option = tk.OptionMenu(top_frame, bath_var, "Any", "1", "2", "3")
         bath_option.grid(row=1, column=2, sticky="nsew")
 
         fur_var = tk.StringVar(top_frame)
         fur_var.set("Any")
-        fur_option = tk.OptionMenu(top_frame, fur_var, "Furnished", "Unfurnished")
+        fur_option = tk.OptionMenu(top_frame, fur_var, "Any", "Furnished", "Unfurnished")
         fur_option.grid(row=1, column=3, sticky="nsew")
 
         price_var = tk.StringVar(top_frame)
         price_var.set("Any")
-        price_option = tk.OptionMenu(top_frame, price_var, "£1000-£1499", "£1500-£1799", "£1800+")
+        price_option = tk.OptionMenu(top_frame, price_var, "Any", "£1000-£1499", "£1500-£1799", "£1800+")
         price_option.grid(row=1, column=4, sticky="nsew")
 
         avail_var = tk.StringVar(top_frame)
         avail_var.set("Any")
-        avail_option = tk.OptionMenu(top_frame, avail_var, "January", "Febuary", "March", "April", "May", "June",
+        avail_option = tk.OptionMenu(top_frame, avail_var, "Any", "January", "Febuary", "March", "April", "May", "June",
                                      "July", "August", "September", "October", "November", "December")
         avail_option.grid(row=1, column=5, sticky="nsew")
 
         search_button = tk.Button(top_frame, text="Search", command=lambda: set_search_options())
-        search_button.grid(row=0, column=6, rowspan=2 ,sticky="nsew")
+        search_button.grid(row=0, column=6, rowspan=2, columnspan=2, sticky="nsew")
 
         """CENTER FRAME"""
 
@@ -187,7 +188,7 @@ class StartPage(tk.Frame):
         """BOTTOM FRAME"""
         bottom_frame = tk.Frame(self, bg='black')
         bottom_frame.place(relx=0, rely=0.9, relwidth=1, relheight=0.1)
-        load_button = tk.Button(bottom_frame, text="Load", command=lambda: create_labels(None, load=True))
+        load_button = tk.Button(bottom_frame, text="Load", command=lambda: create_labels(0, True))
         load_button.place(relx=0, rely=0.0, relwidth=0.2, relheight=0.8)
 
 
