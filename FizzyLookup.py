@@ -1,15 +1,7 @@
 import tkinter as tk
 from tkinter import ttk
-import pandas
-import re
-
-
-""" 
-    TODO
-
-
-
-"""
+import pandas as pd
+import numpy as np
 
 
 class FizzyLookup(tk.Tk):
@@ -32,39 +24,62 @@ class FizzyLookup(tk.Tk):
         frame.tkraise()
 
 
-
 class StartPage(tk.Frame):
     def __init__(self, parent, controller):
         def get_df_from_excel():
-            df = pandas.read_excel('examples.xlsx')
+            df = pd.read_excel('examples.xlsx')
             return df
 
-        def search():
+        def destroy_labels():
+            for widget in scrollable_frame.winfo_children():
+                widget.destroy()
+
+        def scrollable_frame_grid_config():
+            for i in range(8):
+                scrollable_frame.columnconfigure(i, weight=1)
+
+        def top_frame_grid_config():
+            for i in range(5):
+                top_frame.columnconfigure(i, weight=1)
+
+        def set_search_options():
             loc_dict = {"Canning Town": "CT", "Poplar": "PO", "Epsom": "EP", "Lewisham": "LE", "Walthamstow": "WA", "Hayes": "HA", "Stepney Green": "SG"}
             fur_dict = {"Furnished": "Y", "Unfurnished": "N"}
             price_dict = {"£1000-£1499": [1000, 1499], "£1500-£1799": [1500, 1799], "£1800+": [1800, 10000]}
 
-            location = loc_dict[loc_var.get()] if loc_var.get() != "Location" else 0
-            print("Location: {}".format(location))
-            bedroom = bed_var.get() if bed_var.get() != "Bedrooms" else 0
-            bathroom = bath_var.get() if bath_var.get() != "Bathrooms" else 0
-            furnished = fur_dict[fur_var.get()] if fur_var.get() != "Fur/Unfur" else 0
-            price = price_dict[price_var.get()] if price_var.get() != "Price" else 0
-            available = avail_var.get() if avail_var.get() != "Available" else 0
+            location = loc_dict[loc_var.get()] if loc_var.get() != "Any" else 0
+            bedroom = int(bed_var.get()) if bed_var.get() != "Any" else 0
+            bathroom = int(bath_var.get()) if bath_var.get() != "Any" else 0
+            furnished = fur_dict[fur_var.get()] if fur_var.get() != "Any" else 0
+            price = price_dict[price_var.get()] if price_var.get() != "Any" else 0
+            available = avail_var.get() if avail_var.get() != "Any" else 0
 
+            search_df(location, bedroom, bathroom, furnished, price, available)
 
+        def search_df(location, bedroom, bathroom, furnished, price, available):
+            # Use eval to pass search fields to np.where ??
             df = get_df_from_excel()
-            # print(df["Unique code"] if df["Unique code"] == "PO1" else 0)
-            # new_df = df.loc(df["Key"])
-            # new_df = df.loc((df["Unique code"] == df["Unique code"].str.contains(location)))
-            # print(new_df)
-            # print(df["Unique code"] if df["Unique code"].str.contains(location) == True else 0)
-            # print(df.loc[(str(df["Unique code"])[:2] == location)])
+            search = []
+            if location:
+                search.append("(df['Unique code'].str.contains(location))")
+            if bedroom:
+                search.append("(df['Bedroom'] == bedroom)")
+            if bathroom:
+                search.append("(df['Bathroom'] == bathroom)")
+            if furnished:
+                search.append("(df['Fur/Unf'] == furnished)")
+            if price:
+                search.append("((df['Price'] >= price[0]) & (df['Price'] <= price[1]))")
+            if available:
+                search.append("(df['Available'] ")
 
-            # print(df)
-            # print(location, bedroom, bathroom, furnished, price, available)
-
-
+            if not search:
+                create_labels(df)
+            else:
+                search_str = " & ".join(search)
+                idx = np.where(eval(search_str))
+                destroy_labels()
+                create_labels(df.loc[idx])
 
         def create_labels(df, load=False):
             if load:
@@ -80,8 +95,7 @@ class StartPage(tk.Frame):
             price = [ttk.Label(scrollable_frame, text=row["Price"]) for index, row in df.iterrows()]
             balcony = [ttk.Label(scrollable_frame, text=row["Balcony"]) for index, row in df.iterrows()]
             available_from = [ttk.Label(scrollable_frame, text=row["Available from"]) for index, row in df.iterrows()]
-
-            data_labels = [unique_code , flat_num, bedroom, sqft, bathroom, fur_unf, price, balcony, available_from]
+            data_labels = [unique_code, flat_num, bedroom, sqft, bathroom, fur_unf, price, balcony, available_from]
 
             place_labels(header, 0, True)
             [place_labels(data_labels[i], i) for i in range(len(data_labels))]
@@ -89,71 +103,86 @@ class StartPage(tk.Frame):
         def place_labels(labels, col, is_first_row=False):
             if is_first_row:
                 for i in range(len(labels)):
-                    labels[i].grid(row=0, column=i)
+                    labels[i].grid(row=0, column=i, rowspan=1, columnspan=1, sticky="nsew")
             else:
                 for i in range(len(labels)):
-                    labels[i].grid(row=i+1, column=col)
-
+                    labels[i].grid(row=i+1, column=col, rowspan=1, columnspan=1, sticky="nsew")
 
         tk.Frame.__init__(self, parent)
 
         """TOP FRAME"""
 
         top_frame = tk.Frame(self, bg='black')
+        top_frame_grid_config()
         top_frame.place(relx=0, rely=0, relwidth=1, relheight=0.1)
 
+        loc_label = ttk.Label(top_frame, text="Location", anchor="center")
+        loc_label.grid(row=0, column=0, sticky="nsew")
+        bed_label = ttk.Label(top_frame, text="Bedrooms", anchor="center")
+        bed_label.grid(row=0, column=1, sticky="nsew")
+        bath_label = ttk.Label(top_frame, text="Bathrooms", anchor="center")
+        bath_label.grid(row=0, column=2, sticky="nsew")
+        fur_label = ttk.Label(top_frame, text="Furnished", anchor="center")
+        fur_label.grid(row=0, column=3, sticky="nsew")
+        price_label = ttk.Label(top_frame, text="Price", anchor="center")
+        price_label.grid(row=0, column=4, sticky="nsew")
+        avail_label = ttk.Label(top_frame, text="Available", anchor="center")
+        avail_label.grid(row=0, column=5, sticky="nsew")
+
         loc_var = tk.StringVar(top_frame)
-        loc_var.set("Location")
+        loc_var.set("Any")
         loc_option = tk.OptionMenu(top_frame, loc_var, "Canning Town", "Poplar", "Epsom", "Lewisham","Walthamstow", "Hayes", "Stepney Green")
-        loc_option.place(relx=0, rely=0.1, relwidth=0.15, relheight=0.8)
+        loc_option.grid(row=1, column=0, sticky="nsew")
 
         bed_var = tk.StringVar(top_frame)
-        bed_var.set("Bedrooms")
+        bed_var.set("Any")
         bed_option = tk.OptionMenu(top_frame, bed_var, "1", "2", "3")
-        bed_option.place(relx=0.15, rely=0.1, relwidth=0.15, relheight=0.8)
+        bed_option.grid(row=1, column=1, sticky="nsew")
 
         bath_var = tk.StringVar(top_frame)
-        bath_var.set("Bathrooms")
+        bath_var.set("Any")
         bath_option = tk.OptionMenu(top_frame, bath_var, "1", "2", "3")
-        bath_option.place(relx=0.30, rely=0.1, relwidth=0.15, relheight=0.8)
+        bath_option.grid(row=1, column=2, sticky="nsew")
 
         fur_var = tk.StringVar(top_frame)
-        fur_var.set("Fur/Unfur")
+        fur_var.set("Any")
         fur_option = tk.OptionMenu(top_frame, fur_var, "Furnished", "Unfurnished")
-        fur_option.place(relx=0.45, rely=0.1, relwidth=0.15, relheight=0.8)
+        fur_option.grid(row=1, column=3, sticky="nsew")
 
         price_var = tk.StringVar(top_frame)
-        price_var.set("Price")
+        price_var.set("Any")
         price_option = tk.OptionMenu(top_frame, price_var, "£1000-£1499", "£1500-£1799", "£1800+")
-        price_option.place(relx=0.6, rely=0.1, relwidth=0.15, relheight=0.8)
+        price_option.grid(row=1, column=4, sticky="nsew")
 
         avail_var = tk.StringVar(top_frame)
-        avail_var.set("Available")
+        avail_var.set("Any")
         avail_option = tk.OptionMenu(top_frame, avail_var, "January", "Febuary", "March", "April", "May", "June",
                                      "July", "August", "September", "October", "November", "December")
-        avail_option.place(relx=0.75, rely=0.1, relwidth=0.15, relheight=0.8)
+        avail_option.grid(row=1, column=5, sticky="nsew")
 
-        search_button = tk.Button(top_frame, text="Search", command=lambda: search())
-        search_button.place(relx=0.9, rely=0.1, relwidth=0.1, relheight=0.8)
+        search_button = tk.Button(top_frame, text="Search", command=lambda: set_search_options())
+        search_button.grid(row=0, column=6, rowspan=2 ,sticky="nsew")
 
         """CENTER FRAME"""
 
-        center_frame = ttk.Frame(self)
+        center_frame = tk.Frame(self, bg="green")
         center_frame.place(relx=0, rely=0.1, relwidth=1, relheight=0.8)
 
-        container = ttk.Frame(center_frame)
-        canvas = tk.Canvas(container)
+        container = tk.Frame(center_frame, bg="red")
+        canvas = tk.Canvas(container, bg="yellow")
 
-        scrollbar = ttk.Scrollbar(container, orient="vertical", command=canvas.yview)
-        scrollable_frame = ttk.Frame(canvas)
+        scrollbar = tk.Scrollbar(canvas, orient="vertical", command=canvas.yview)
+
+        scrollable_frame = tk.Frame(canvas)
         scrollable_frame.bind("<Configure>", lambda e: canvas.configure(scrollregion=canvas.bbox("all")))
-        canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
+        scrollable_frame_grid_config()
+
         canvas.bind_all('<MouseWheel>', lambda event: canvas.yview_scroll(int(-1*(event.delta/120)), "units"))
         canvas.configure(yscrollcommand=scrollbar.set)
-
-        container.pack(side="left", fill="both", expand=True)
-        canvas.pack(side="left", fill="both", expand=True)
+        container.pack(fill="both", expand=True)
+        canvas.pack(fill="both", expand=True)
         scrollbar.pack(side="right", fill="y")
+        scrollable_frame.pack(fill="both", expand=True)
 
         """BOTTOM FRAME"""
         bottom_frame = tk.Frame(self, bg='black')
@@ -162,17 +191,10 @@ class StartPage(tk.Frame):
         load_button.place(relx=0, rely=0.0, relwidth=0.2, relheight=0.8)
 
 
-
-
-
-
-
-
 HEIGHT = 500
 WIDTH = 800
 
 app = FizzyLookup()
 
 app.geometry('{}x{}'.format(WIDTH, HEIGHT))
-# app.resizable(width=False, height=False)
 app.mainloop()
