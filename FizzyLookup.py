@@ -2,6 +2,7 @@ import tkinter as tk
 from tkinter import ttk
 import pandas as pd
 import numpy as np
+import datetime as dt
 
 
 class FizzyLookup(tk.Tk):
@@ -11,12 +12,10 @@ class FizzyLookup(tk.Tk):
         container.pack(side="top", fill="both", expand=True)
         container.grid_rowconfigure(0, weight=1)
         container.grid_columnconfigure(0, weight=1)
-
         self.frames = {}
         frame = StartPage(container, self)
         self.frames[StartPage] = frame
         frame.grid(row=0, column=0, sticky="nsew")
-
         self.show_frame(StartPage)
 
     def show_frame(self, cont):
@@ -30,30 +29,30 @@ class StartPage(tk.Frame):
             df = pd.read_excel('examples.xlsx')
             return df
 
-        def destroy_labels():
-            for widget in scrollable_frame.winfo_children():
+        def destroy_widgets(frame_to_clear):
+            for widget in frame_to_clear.winfo_children():
                 widget.destroy()
 
-        def scrollable_frame_grid_config():
-            for i in range(8):
-                scrollable_frame.columnconfigure(i, weight=1)
+        def column_grid_config(frame, col_range):
+            for i in range(0, col_range):
+                frame.columnconfigure(i, weight=1)
 
-        def top_frame_grid_config():
-            for i in range(7):
-                top_frame.columnconfigure(i, weight=1)
+        def convert_df_datetime_to_str(df):
+            df['Available from'] = pd.to_datetime(df["Available from"], errors="coerce")
+            df['Available from'] = df['Available from'].dt.strftime('%m - %B - %Y')
+            return df
 
         def set_search_options():
             loc_dict = {"Canning Town": "CT", "Poplar": "PO", "Epsom": "EP", "Lewisham": "LE", "Walthamstow": "WA",
                         "Hayes": "HA", "Stepney Green": "SG"}
             fur_dict = {"Furnished": "Y", "Unfurnished": "N"}
             price_dict = {"£1000-£1499": [1000, 1499], "£1500-£1799": [1500, 1799], "£1800+": [1800, 10000]}
-
             location = loc_dict[loc_var.get()] if loc_var.get() != "Any" else 0
             bedroom = int(bed_var.get()) if bed_var.get() != "Any" else 0
             bathroom = int(bath_var.get()) if bath_var.get() != "Any" else 0
             furnished = fur_dict[fur_var.get()] if fur_var.get() != "Any" else 0
             price = price_dict[price_var.get()] if price_var.get() != "Any" else 0
-            available = avail_var.get() if avail_var.get() != "Any" else 0
+            available = str(avail_var.get()) if avail_var.get() != "Any" else 0
 
             if not any([location] + [bedroom] + [bathroom] + [furnished] + [price] + [available]):
                 create_labels_from_df(None, True)
@@ -73,17 +72,18 @@ class StartPage(tk.Frame):
             if price:
                 search.append("((df['Price'] >= price[0]) & (df['Price'] <= price[1]))")
             if available:
-                search.append("(df['Available'] ")
+                search.append("(df['Available from'].str.contains(available))")
 
             df = get_df_from_excel()
+            df = convert_df_datetime_to_str(df)
             search_str = " & ".join(search)
             idx = np.where(eval(search_str))
-            destroy_labels()
+            destroy_widgets(scrollable_frame)
             create_labels_from_df(df.loc[idx])
 
         def create_labels_from_df(df, load_all=False):
             if load_all:
-                df = get_df_from_excel()
+                df = convert_df_datetime_to_str(get_df_from_excel())
 
             headers = [ttk.Label(scrollable_frame, text=label) for label in df.columns[:-1]]
             unique_code = [ttk.Label(scrollable_frame, text=row["Unique code"]) for index, row in df.iterrows()]
@@ -96,7 +96,6 @@ class StartPage(tk.Frame):
             balcony = [ttk.Label(scrollable_frame, text=row["Balcony"]) for index, row in df.iterrows()]
             available_from = [ttk.Label(scrollable_frame, text=row["Available from"]) for index, row in df.iterrows()]
             data_labels = [unique_code, flat_num, bedroom, sqft, bathroom, fur_unf, price, balcony, available_from]
-
             grid_labels(headers, 0, True)
             [grid_labels(data_labels[i], i) for i in range(len(data_labels))]
 
@@ -113,7 +112,7 @@ class StartPage(tk.Frame):
         """TOP FRAME"""
 
         top_frame = tk.Frame(self, bg='black')
-        top_frame_grid_config()
+        column_grid_config(top_frame, 7)
         top_frame.place(relx=0, rely=0, relwidth=1, relheight=0.1)
 
         loc_label = ttk.Label(top_frame, text="Location", anchor="center")
@@ -176,7 +175,7 @@ class StartPage(tk.Frame):
 
         scrollable_frame = tk.Frame(canvas)
         scrollable_frame.bind("<Configure>", lambda e: canvas.configure(scrollregion=canvas.bbox("all")))
-        scrollable_frame_grid_config()
+        column_grid_config(scrollable_frame, 8)
 
         canvas.bind_all('<MouseWheel>', lambda event: canvas.yview_scroll(int(-1*(event.delta/120)), "units"))
         canvas.configure(yscrollcommand=scrollbar.set)
@@ -188,7 +187,7 @@ class StartPage(tk.Frame):
         """BOTTOM FRAME"""
         bottom_frame = tk.Frame(self, bg='black')
         bottom_frame.place(relx=0, rely=0.9, relwidth=1, relheight=0.1)
-        load_button = tk.Button(bottom_frame, text="Load", command=lambda: create_labels(0, True))
+        load_button = tk.Button(bottom_frame, text="Load", command=lambda: create_labels_from_df(0, True))
         load_button.place(relx=0, rely=0.0, relwidth=0.2, relheight=0.8)
 
 
