@@ -3,6 +3,10 @@ from tkinter import ttk
 import pandas as pd
 import numpy as np
 
+"""Todo:
+    speed up label creation and placement, perhaps by placing each list without first appending it to a list of lists 
+    look into using timeit - perhaps isolate code in a sandbox env
+"""
 
 class FizzyLookup(tk.Tk):
     def __init__(self, *args, **kwargs):
@@ -67,7 +71,8 @@ class StartPage(tk.Frame):
                 create_search_str(location, floor, bedroom, bathroom, furnished, price, available)
 
         def create_search_str(location, floor, bedroom, bathroom, furnished, price, available):
-            """Uses eval() to search df with joined string"""
+            """Creates string of conditions to eval(). Locates DataFrame indices matching string conditions"""
+
             search = []
             if location:
                 search.append("(df['Location'].str.contains(location))")
@@ -92,21 +97,14 @@ class StartPage(tk.Frame):
             if load_all:
                 df = convert_df_datetime_to_str(get_df_from_excel())
 
-            headers = [ttk.Label(scrollable_frame, text=label) for label in df.columns[:10]]
-            location = [ttk.Label(scrollable_frame, text=row["Location"]) for index, row in df.iterrows()]
-            flat_num = [ttk.Label(scrollable_frame, text=row["Flat #"]) for index, row in df.iterrows()]
-            floor = [ttk.Label(scrollable_frame, text=row["Floor"]) for index, row in df.iterrows()]
-            bedroom = [ttk.Label(scrollable_frame, text=row["Bedroom"]) for index, row in df.iterrows()]
-            sqft = [ttk.Label(scrollable_frame, text=row["Sq Ft"]) for index, row in df.iterrows()]
-            bathroom = [ttk.Label(scrollable_frame, text=row["Bathroom"]) for index, row in df.iterrows()]
-            fur_unf = [ttk.Label(scrollable_frame, text=row["Fur/Unf"]) for index, row in df.iterrows()]
-            price = [ttk.Label(scrollable_frame, text=row["Price"]) for index, row in df.iterrows()]
-            balcony = [ttk.Label(scrollable_frame, text=row["Balcony"]) for index, row in df.iterrows()]
-            available = [ttk.Label(scrollable_frame, text=row["Available"]) for index, row in df.iterrows()]
-            data_labels = [location, flat_num, floor, bedroom, sqft, bathroom, fur_unf, price, balcony, available]
+            df_keys = ["Location", "Flat #", "Floor", "Bedroom", "Sq Ft", "Bathroom", "Fur/Unf", "Price", "Balcony", "Available"]
+            labels = []
+            for key in df_keys:
+                labels.append([ttk.Label(scrollable_frame, text=row[key], borderwidth=1, relief="solid") for index, row in df.iterrows()])
 
+            headers = [tk.Label(scrollable_frame, text=label, bg="grey", fg="white", anchor="w") for label in df.columns[:10]]
             grid_labels(headers, 0, True)
-            [grid_labels(data_labels[i], i, False) for i in range(len(data_labels))]
+            [grid_labels(labels[i], i) for i in range(len(labels))]
 
         def grid_labels(labels, col, is_first_row=False):
             if is_first_row:
@@ -120,7 +118,7 @@ class StartPage(tk.Frame):
 
         """TOP FRAME"""
 
-        top_frame = tk.Frame(self, bg='black')
+        top_frame = tk.Frame(self)
         column_grid_config(top_frame, 9)
         top_frame.grid(row=0, column=0, sticky="nsew")
 
@@ -181,11 +179,11 @@ class StartPage(tk.Frame):
 
         """CENTER FRAME"""
 
-        center_frame = tk.Frame(self, bg="green")
+        center_frame = tk.Frame(self)
         center_frame.grid(row=1, column=0, sticky="nsew")
 
-        container = tk.Frame(center_frame, bg="red")
-        canvas = tk.Canvas(container, bg="yellow")
+        container = tk.Frame(center_frame)
+        canvas = tk.Canvas(container)
 
         scrollbar = tk.Scrollbar(canvas, orient="vertical", command=canvas.yview)
 
